@@ -15,8 +15,11 @@ var myCharts2 = (function () {
         option = {
             title: {
                 text: title,
-                left: 100,
-                show: true
+                left: 30,
+                textStyle: {
+                    fontWeight: "normal",
+                    fontSize: 20
+                }
             },
             tooltip: {
                 trigger: 'axis'
@@ -52,7 +55,7 @@ var myCharts2 = (function () {
             },
             legend: {
                 data: [],
-                selectedMode: "single",
+                selectedMode: "multiple",
             },
             grid: {
                 left: 120
@@ -150,10 +153,10 @@ var myCharts2 = (function () {
      * name的映射值将自动成为图例的名称
      */
     function setXBarData(option, datas) {
-        var data = [];
+        var legendData = [];
         var serieses = [];
         for (var key in datas) {  // 获取各系列数据名
-            data.push({name: _map[key], icon: 'circle'});
+            legendData.push({name: _map[key], icon: 'circle'});
             serieses.push({
                 name: _map[key],
                 type: 'bar',
@@ -161,12 +164,13 @@ var myCharts2 = (function () {
             })
         }
         option.legend = {}
-        option.legend.data = data;
+        option.legend.data = legendData;
         option.series = serieses;
         return option;
     }
 
     /*
+     * 单选模式下：
      * YData = {
      *   dataname : 'data1',
      *   names : ['a', 'b, 'c', d'],
@@ -180,16 +184,25 @@ var myCharts2 = (function () {
      * dataname 作为对应的图例
      * names 将作为Y轴的数据，
      * values 作为X轴数据，
+     *
+     * 多选模式下由于X轴与Y轴基本类似，因此直接采取相同的数据格式
+     * 直接采用与X轴相同的数据格式
      * */
-    function setYBarData(option, datas) {
-        option.yAxis = {
-            data: datas.names,
-        };
-        option.series = [{
-            name: _map[datas.dataname],
-            type: 'bar',
-            data: datas.values
-        }];
+    function setYBarData(option, datas, selectedMode) {
+        selectedMode = selectedMode || 'multiple';
+        var option = {};
+        if(selectedMode == 'single'){
+            option.yAxis = {
+                data: datas.names,
+            };
+            option.series = [{
+                name: _map[datas.dataname],
+                type: 'bar',
+                data: datas.values
+            }];
+        }else{
+            option = setXBarData(option, datas);
+        }
         return option;
     }
 
@@ -211,9 +224,10 @@ var myCharts2 = (function () {
     * }
     */
     function setYBarLegends(chart, legends, urls, visualMaps) {
+        var option = {};
         if (chart.getOption().legend[0].selectedMode != 'single') {
-            console.log("setYBarLegends : selectedMode need to be single!");
-            return null;
+            //console.log("setYBarLegends : selectedMode need to be single!");
+            //return null;
         }
         serieses = [];
         mapped_legends = [];
@@ -227,6 +241,7 @@ var myCharts2 = (function () {
         option = {
             legend: {
                 data: mapped_legends,
+                selectedMode : 'single'
             },
             series: serieses,
         }
@@ -287,7 +302,8 @@ var myCharts2 = (function () {
                 option = setContinuousVisualMap(xAxis[0].type, option, visualMap.colors, Math.min.apply(null, visualMap.values), Math.max.apply(null, visualMap.values));
             }
         } else {  // 以Y轴为基础的图
-            option = setYBarData(option, datas);
+            chartSelectedMode = chart.getOption().legend[0].selectedMode;
+            option = setYBarData(option, datas, chartSelectedMode);
             if (visualMap != null) {
                 option = setContinuousVisualMap(xAxis[0].type, option, visualMap.colors, Math.min.apply(null, visualMap.values), Math.max.apply(null, visualMap.values));
             }
@@ -374,6 +390,14 @@ var myCharts2 = (function () {
         }
     }
 
+    // 设置toolbox的排列方向，默认为水平方向
+    // orient = 'horizontal' || 'vertical'
+    function setToolboxOrient(option, orient) {
+        orient = orient || 'horizontal';
+        option.toolbox.orient = orient;
+        return option;
+    }
+
     // 设置X轴坐标，默认为12个月
     // xData = ['a', 'b', 'c'];  // xData 坐标轴
     function setXAxis(option, xData) {
@@ -383,6 +407,18 @@ var myCharts2 = (function () {
         }
         xData = xData || months;
         option.xAxis.data = xData;
+        return option;
+    }
+
+    // 设置Y轴坐标，默认为12个月
+    // yData = ['a', 'b', 'c'];  // yData 坐标轴
+    function setYAxis(option, yData) {
+        var months = [];
+        for (var i = 1; i < 13; ++i) {
+            months.push(i + "月");
+        }
+        yData = yData || months;
+        option.yAxis.data = yData;
         return option;
     }
 
@@ -465,17 +501,25 @@ var myCharts2 = (function () {
         var option = getXBarOption(title);     // 获取X轴基本结构
         option = setPrimeTools(option, true);  // 设置echart自带的工具箱，（带有magicType）
         option = setXAxis(option);              // 设置X轴为默认的12月份
+        option = setToolboxOrient(option, 'vertical');
         chart.setOption(option);                // 将option设置到echart图表中
+
         // setSelectedMode(chart, 'single');
         return chart;
     }
 
-    function getYBar(dom, title) {
+    function getYBar(dom, title, isSingle) {
+        isSingle = isSingle || false;
         var chart = echarts.init(dom);
         var option = getYBarOption(title);
         option = setPrimeTools(option, false);
+        option = setYAxis(option);
         chart.setOption(option);
-        setSelectedMode(chart, 'single');
+        if(isSingle){
+            setSelectedMode(chart, 'single');
+        }else{
+            setSelectedMode(chart, 'multiple');
+        }
         return chart;
     }
 
